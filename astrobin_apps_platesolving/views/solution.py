@@ -1,7 +1,7 @@
 import logging
 import os
 import time
-import urllib2
+import urllib3
 
 import simplejson
 from braces.views import CsrfExemptMixin
@@ -72,7 +72,7 @@ class SolveView(base.View):
                 solution.status = Solver.PENDING
                 solution.submission_id = submission
                 solution.save()
-            except Exception, e:
+            except Exception(e):
                 log.error(e)
                 solution.status = Solver.MISSING
                 solution.submission_id = None
@@ -101,7 +101,7 @@ class SolveAdvancedView(base.View):
                         latest_settings = image.solution.advanced_settings
                         break
             elif target.image.solution and target.image.solution.advanced_settings:
-                    latest_settings = target.image.solution.advanced_settings
+                latest_settings = target.image.solution.advanced_settings
 
             if latest_settings is not None:
                 latest_settings.pk = None
@@ -214,7 +214,8 @@ class SolutionFinalizeView(CsrfExemptMixin, base.View):
             solution.dec = "%.3f" % info['calibration']['dec']
             solution.orientation = "%.3f" % info['calibration']['orientation']
             solution.radius = "%.3f" % info['calibration']['radius']
-            solution.pixscale = "%.3f" % corrected_pixscale(solution, info['calibration']['pixscale'])
+            solution.pixscale = "%.3f" % corrected_pixscale(
+                solution, info['calibration']['pixscale'])
 
             try:
                 target = solution.content_type.get_object_for_this_type(pk=solution.object_id)
@@ -245,7 +246,7 @@ class SolutionFinalizeView(CsrfExemptMixin, base.View):
             url = solver.sky_plot_zoom1_image_url(solution.submission_id)
             if url:
                 img = NamedTemporaryFile(delete=True)
-                img.write(urllib2.urlopen(url).read())
+                img.write(urllib3.urlopen(url).read())
                 img.flush()
                 img.seek(0)
                 f = File(img)

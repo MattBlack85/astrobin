@@ -1,11 +1,15 @@
 from __future__ import absolute_import
+import six
 
 import csv
 import ntpath
 import subprocess
 import tempfile
 import zipfile
-from StringIO import StringIO
+if six.PY2:
+    from StringIO import StringIO
+else:
+    from io import StringIO
 from datetime import datetime, timedelta
 from time import sleep
 from zipfile import ZipFile
@@ -51,10 +55,10 @@ def update_top100_ids():
     lock_id = 'top100_ids_lock'
 
     # cache.add fails if the key already exists
-    acquire_lock = lambda: cache.add(lock_id, 'true', LOCK_EXPIRE)
+    def acquire_lock(): return cache.add(lock_id, 'true', LOCK_EXPIRE)
     # memcache delete is very slow, but we have to use it to take
     # advantage of using add() for atomic locking
-    release_lock = lambda: cache.delete(lock_id)
+    def release_lock(): return cache.delete(lock_id)
 
     logger.debug('Building Top100 ids...')
     if acquire_lock():
@@ -146,8 +150,8 @@ def retrieve_thumbnail(pk, alias, options):
     LOCK_EXPIRE = 1
     lock_id = 'retrieve_thumbnail_%d_%s_%s' % (pk, revision_label, alias)
 
-    acquire_lock = lambda: cache.add(lock_id, 'true', LOCK_EXPIRE)
-    release_lock = lambda: cache.delete(lock_id)
+    def acquire_lock(): return cache.add(lock_id, 'true', LOCK_EXPIRE)
+    def release_lock(): return cache.delete(lock_id)
 
     def set_thumb():
         url = thumb.url
@@ -156,7 +160,8 @@ def retrieve_thumbnail(pk, alias, options):
             field.name = 'images/' + field.name
         cache_key = image.thumbnail_cache_key(field, alias)
         cache.set(cache_key, url, 60 * 60 * 24 * 365)
-        thumbnails, created = ThumbnailGroup.objects.get_or_create(image=image, revision=revision_label)
+        thumbnails, created = ThumbnailGroup.objects.get_or_create(
+            image=image, revision=revision_label)
         setattr(thumbnails, alias, url)
         thumbnails.save()
         cache.delete('%s.retrieve' % cache_key)
@@ -211,7 +216,8 @@ def send_broadcast_email(broadcast_email_id, recipients):
     try:
         broadcast_email = BroadcastEmail.objects.get(id=broadcast_email_id)
     except BroadcastEmail.DoesNotExist:
-        logger.error("Attempted to send broadcast email that does not exist: %d" % broadcast_email_id)
+        logger.error("Attempted to send broadcast email that does not exist: %d" %
+                     broadcast_email_id)
         return
 
     for recipient in recipients:
@@ -223,6 +229,7 @@ def send_broadcast_email(broadcast_email_id, recipients):
         msg.attach_alternative(broadcast_email.message_html, "text/html")
         msg.send()
         logger.info("Email sent to %s: %s" % (recipient.email, broadcast_email.subject))
+
 
 @shared_task()
 def send_inactive_account_reminder():
@@ -244,7 +251,8 @@ def send_never_activated_account_reminder():
             'username': user.username,
             'activation_link': '%s/%s' % (
                 settings.BASE_URL,
-                reverse('registration_activate', args=(RegistrationView().get_activation_key(user),)),
+                reverse('registration_activate', args=(
+                    RegistrationView().get_activation_key(user),)),
             )
         })
 
@@ -261,6 +269,7 @@ def delete_never_activated_accounts():
     users.delete()
     logger.debug("Deleted %d inactive accounts" % count)
 
+
 @shared_task()
 def prepare_download_data_archive(request_id):
     # type: (str) -> None
@@ -272,7 +281,8 @@ def prepare_download_data_archive(request_id):
     try:
         temp_zip = tempfile.NamedTemporaryFile()
         temp_csv = StringIO()  # type: StringIO
-        archive = zipfile.ZipFile(temp_zip, 'w', zipfile.ZIP_DEFLATED, allowZip64=True)  # type: ZipFile
+        archive = zipfile.ZipFile(temp_zip, 'w', zipfile.ZIP_DEFLATED,
+                                  allowZip64=True)  # type: ZipFile
 
         csv_writer = csv.writer(temp_csv)
         csv_writer.writerow([
@@ -314,7 +324,8 @@ def prepare_download_data_archive(request_id):
             'mouse_hover_image'
         ])
 
-        images = Image.objects_including_wip.filter(user=data_download_request.user, corrupted=False)
+        images = Image.objects_including_wip.filter(
+            user=data_download_request.user, corrupted=False)
         for image in images:
             id = image.get_id()  # type: str
 
@@ -330,13 +341,16 @@ def prepare_download_data_archive(request_id):
                     logger.debug("prepare_download_data_archive: image %s = written" % id)
 
                 if image.solution and image.solution.image_file:
-                    response = requests.get(image.solution.image_file.url, verify=False)  # type: Response
+                    response = requests.get(image.solution.image_file.url,
+                                            verify=False)  # type: Response
                     if response.status_code == 200:
                         path = ntpath.basename(image.solution.image_file.name)  # type: str
                         archive.writestr("%s-%s/solution/%s" % (id, title, path), response.content)
-                        logger.debug("prepare_download_data_archive: solution of image %s = written" % id)
+                        logger.debug(
+                            "prepare_download_data_archive: solution of image %s = written" % id)
 
-                for revision in ImageRevision.objects.filter(image=image, corrupted=False):  # type: ImageRevision
+                # type: ImageRevision
+                for revision in ImageRevision.objects.filter(image=image, corrupted=False):
                     try:
                         label = revision.label  # type: unicode
                         path = ntpath.basename(revision.image_file.name)  # type: str

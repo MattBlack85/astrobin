@@ -2,7 +2,7 @@ import csv
 import logging
 import operator
 import os
-import urllib2
+import urllib3
 
 import flickrapi
 import simplejson
@@ -1955,7 +1955,7 @@ def user_profile_flickr_import(request):
                     source = found_size.attrib['source']
 
                     img = NamedTemporaryFile(delete=True)
-                    img.write(urllib2.urlopen(source).read())
+                    img.write(urllib3.urlopen(source).read())
                     img.flush()
                     img.seek(0)
                     f = File(img)

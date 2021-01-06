@@ -54,12 +54,8 @@ from model_utils.managers import InheritanceManager
 from safedelete.models import SafeDeleteModel
 from toggleproperties.models import ToggleProperty
 
-try:
-    # Django < 1.10
-    from timezones.forms import PRETTY_TIMEZONE_CHOICES
-except:
-    # Django >= 1.10
-    from timezones.zones import PRETTY_TIMEZONE_CHOICES
+from astrobin.utils import get_pretty_tz_choices
+
 
 from astrobin_apps_images.managers import ImagesManager, PublicImagesManager, WipImagesManager
 from astrobin_apps_notifications.utils import push_notification
@@ -318,7 +314,8 @@ class Gear(models.Model):
                         continue
 
         # Find matching slaves in user profiles
-        filters = reduce(operator.or_, [Q(**{'%s__gear_ptr__pk' % t: slave.pk}) for t in UserProfile.GEAR_CLASS_LOOKUP])
+        filters = reduce(operator.or_, [Q(**{'%s__gear_ptr__pk' % t: slave.pk})
+                                        for t in UserProfile.GEAR_CLASS_LOOKUP])
         owners = UserProfile.objects.filter(filters).distinct()
         for owner in owners:
             for name, klass in UserProfile.GEAR_CLASS_LOOKUP.iteritems():
@@ -490,7 +487,7 @@ class Telescope(Gear):
 
     def attributes(self):
         return super(Telescope, self).attributes() + \
-               [('aperture', _("mm")), ('focal_length', _("mm"))]
+            [('aperture', _("mm")), ('focal_length', _("mm"))]
 
     class Meta:
         app_label = 'astrobin'
@@ -517,7 +514,7 @@ class Mount(Gear):
 
     def attributes(self):
         return super(Mount, self).attributes() + \
-               [('max_payload', _("kg")), ('pe', "\"")]
+            [('max_payload', _("kg")), ('pe', "\"")]
 
     class Meta:
         app_label = 'astrobin'
@@ -570,7 +567,7 @@ class Camera(Gear):
 
     def attributes(self):
         return super(Camera, self).attributes() + \
-               [('sensor_width', _("mm")), ('sensor_height', _("mm")), ('pixel_size', _("&mu;m"))]
+            [('sensor_width', _("mm")), ('sensor_height', _("mm")), ('pixel_size', _("&mu;m"))]
 
     class Meta:
         app_label = 'astrobin'
@@ -641,7 +638,7 @@ class Filter(Gear):
 
     def attributes(self):
         return super(Filter, self).attributes() + \
-               [('bandwidth', _("nm"))]
+            [('bandwidth', _("nm"))]
 
     class Meta:
         app_label = 'astrobin'
@@ -944,7 +941,8 @@ class Image(HasSolutionMixin, SafeDeleteModel):
 
     uncompressed_source_file = models.FileField(
         upload_to=uncompressed_source_upload_path,
-        validators=(FileValidator(allowed_extensions=(settings.ALLOWED_UNCOMPRESSED_SOURCE_EXTENSIONS)),),
+        validators=(FileValidator(allowed_extensions=(
+            settings.ALLOWED_UNCOMPRESSED_SOURCE_EXTENSIONS)),),
         verbose_name=_("Uncompressed source (max 100 MB)"),
         help_text=_(
             "You can store the final processed image that came out of your favorite image editor (e.g. PixInsight, "
@@ -1027,7 +1025,8 @@ class Image(HasSolutionMixin, SafeDeleteModel):
                                              verbose_name=_("Imaging cameras"))
     guiding_cameras = models.ManyToManyField(Camera, blank=True, related_name='guiding_cameras',
                                              verbose_name=_("Guiding cameras"))
-    focal_reducers = models.ManyToManyField(FocalReducer, blank=True, verbose_name=_("Focal reducers"))
+    focal_reducers = models.ManyToManyField(
+        FocalReducer, blank=True, verbose_name=_("Focal reducers"))
     software = models.ManyToManyField(Software, blank=True, verbose_name=_("Software"))
     filters = models.ManyToManyField(Filter, blank=True, verbose_name=_("Filters"))
     accessories = models.ManyToManyField(Accessory, blank=True, verbose_name=_("Accessories"))
@@ -1235,7 +1234,6 @@ class Image(HasSolutionMixin, SafeDeleteModel):
                 pass
 
         return field
-
 
     def thumbnail_raw(self, alias, thumbnail_settings={}):
         import urllib2
@@ -2144,7 +2142,7 @@ class UserProfile(SafeDeleteModel):
 
     timezone = models.CharField(
         max_length=255,
-        choices=PRETTY_TIMEZONE_CHOICES,
+        choices=get_pretty_tz_choices(),
         blank=True, null=True,
         verbose_name=_("Timezone"),
         help_text=_("By selecting this, you will see all the dates on AstroBin in your timezone."))
@@ -2792,10 +2790,10 @@ class ImageOfTheDayCandidate(models.Model):
 
     def save(self, *args, **kwargs):
         if self.image.user.userprofile.exclude_from_competitions:
-            raise ValidationError, "User is excluded from competitions"
+            raise ValidationError("User is excluded from competitions")
 
         if self.image.user.userprofile.banned_from_competitions:
-            raise ValidationError, "User is banned from competitions"
+            raise ValidationError("User is banned from competitions")
 
         super(ImageOfTheDayCandidate, self).save(*args, **kwargs)
 
